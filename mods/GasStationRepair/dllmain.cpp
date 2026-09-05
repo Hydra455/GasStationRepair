@@ -125,7 +125,7 @@ namespace
 
             RepairZone zone{};
             zone.position.x = ReadFloat(section, L"X", 0.0f);
-            zone.position.y = -ReadFloat(section, L"Y", 0.0f); // Hot Position stores -Y.
+            zone.position.y = -ReadFloat(section, L"Y", 0.0f);
             zone.position.z = ReadFloat(section, L"Z", 0.0f);
             zone.radius = AtLeast(ReadFloat(section, L"Radius", defaultRadius), 1.0f);
             g_zones.push_back(zone);
@@ -207,19 +207,14 @@ namespace
         device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_LINEAR);
         device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_LINEAR);
 
-        // Underground 2-style marker movement: the card continuously spins
-        // around its vertical axis, gently floats, and subtly breathes.
         const float time = static_cast<float>(GetTickCount64() % 600000u) *
             0.001f * g_animationSpeed;
         const float bob = std::sin(time * 2.0f) * g_bobHeight;
         const float pulse = 1.0f + std::sin(time * 4.0f) * g_pulseAmount;
         const float halfHeight = g_markerSize * 0.5f * pulse;
-        // Keeping the cosine signed mirrors the card after it turns edge-on,
-        // which creates a real two-sided vertical-axis spin.
         const float halfWidth = halfHeight * std::cos(time * 1.7f);
         for (const RepairZone& zone : g_zones)
         {
-            // Convert the SDK position to MWHealthbars' proven render coordinate system.
             const D3DXVECTOR3 world(zone.position.x, -zone.position.y,
                 zone.position.z + g_markerHeight + bob);
             D3DXVECTOR4 center{};
@@ -310,17 +305,18 @@ namespace
                 const bool inside = IsInside(snapshot.position, zone);
                 if (inside && !zone.playerInside)
                 {
-                    NFSMW::Log("You are inside a repair zone");
                     if (snapshot.vehicle && NFSMW::Vehicle::Repair(snapshot.vehicle))
-                        NFSMW::Log("Repair zone: vehicle repaired");
-                    nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
+                        nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
+                    if (NFSMW::Vehicle::ChargeNitrous(snapshot.vehicle, 100))
+                        nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
                 }
                 else if (inside && snapshot.vehicle &&
                     GetTickCount64() >= nextRepairAttempt)
                 {
                     if (NFSMW::Vehicle::Repair(snapshot.vehicle))
-                        NFSMW::Log("Repair zone: vehicle repaired");
-                    nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
+                        nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
+                    if (NFSMW::Vehicle::ChargeNitrous(snapshot.vehicle, 100))
+                        nextRepairAttempt = GetTickCount64() + g_repairCooldownMs;
                 }
                 zone.playerInside = inside;
             }
